@@ -5,7 +5,7 @@ import { Cell } from "./cell";
 import { presets } from "./presets";
 import { scope } from "../lib/utils";
 import { WindowsWindow, WindowsBox, WindowsWindowHeader } from "./windows-ui";
-import { CountDisplay } from "./count-display";
+import { CountDisplay } from "./count-display.tsx";
 
 const initialContext = {
 	gameState: "idle",
