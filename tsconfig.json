@@ -2,9 +2,10 @@
     "include": ["./src"],
     "compilerOptions": {
         "allowJs": true,
-        "check": false,
+        "checkJs": false,
         "esModuleInterop": false,
         "noEmit": true,
-        "jsx": "preserve"
+        "jsx": "preserve",
+        "strict": false
     }
 }
