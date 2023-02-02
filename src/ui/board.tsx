@@ -16,7 +16,22 @@ const initialContext = {
 
 // type GameState = "idle" | "active" | "won" | "lost";
 
-function reducer(context, event) {
+interface BoardContext {
+	gameState: GameState;
+	cells: Cell[];
+	mines: number[];
+	initialized: boolean;
+}
+
+type BoardEvent =
+		| {TYPE: "RESET"; board: BoardConfig}
+		| {TYPE: "REVEAL_CELL"; board: BoardConfig; index: number;}
+		| {TYPE: "REVEAL_ADJACENT_CELLS"; board: BoardConfig; index: number;}
+		| {TYPE: "MARK_CELL"; board: BoardConfig; index: number;}
+		| {TYPE: "MARK_REMEINING_MINES"; board: BoardConfig};
+
+
+function reducer(context: BoardContext, event: BoardEvent): BoardContext {
 	if (event.type === "RESET") {
 		return {
 			...context,
