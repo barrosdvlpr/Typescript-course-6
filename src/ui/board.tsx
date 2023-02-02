@@ -7,14 +7,14 @@ import { scope } from "../lib/utils";
 import { WindowsWindow, WindowsBox, WindowsWindowHeader } from "./windows-ui";
 import { CountDisplay } from "./count-display";
 
-const initialContext = {
+const initialContext: BoardContext = {
 	gameState: "idle",
 	cells: [],
 	mines: [],
 	initialized: false,
 };
 
-// type GameState = "idle" | "active" | "won" | "lost";
+type GameState = "idle" | "active" | "won" | "lost";
 
 interface BoardContext {
 	gameState: GameState;
@@ -24,12 +24,11 @@ interface BoardContext {
 }
 
 type BoardEvent =
-		| {TYPE: "RESET"; board: BoardConfig}
-		| {TYPE: "REVEAL_CELL"; board: BoardConfig; index: number;}
-		| {TYPE: "REVEAL_ADJACENT_CELLS"; board: BoardConfig; index: number;}
-		| {TYPE: "MARK_CELL"; board: BoardConfig; index: number;}
-		| {TYPE: "MARK_REMEINING_MINES"; board: BoardConfig};
-
+	| { type: "RESET"; board: BoardConfig }
+	| { type: "REVEAL_CELL"; board: BoardConfig; index: number }
+	| { type: "REVEAL_ADJACENT_CELLS"; board: BoardConfig; index: number }
+	| { type: "MARK_CELL"; index: number }
+	| { type: "MARK_REMAINING_MINES"; board: BoardConfig };
 
 function reducer(context: BoardContext, event: BoardEvent): BoardContext {
 	if (event.type === "RESET") {
@@ -132,10 +131,10 @@ function reducer(context: BoardContext, event: BoardEvent): BoardContext {
 					}
 
 					let markCount = 0;
-					let cellsToReveal = [];
+					let cellsToReveal: number[] = [];
 					let board = event.board;
 					let mines = context.mines;
-					let gameState = context.gameState;
+					let gameState: GameState = context.gameState;
 
 					for (let idx of cell.adjacentIndexMatrix) {
 						if (idx == null) continue;
@@ -149,18 +148,20 @@ function reducer(context: BoardContext, event: BoardEvent): BoardContext {
 					}
 					if (markCount >= cell.adjacentMineCount) {
 						for (let cell of cellsToReveal) {
-							[gameState, cells] = selectCell(
+							let [nextState, nextCells] = selectCell(
 								cell,
 								cells,
 								mines,
 								board,
 								gameState
 							);
+							cells = nextCells;
+							gameState = nextState;
 						}
 						return {
 							...context,
 							gameState,
-							cells,
+							cells: cells,
 						};
 					}
 					return context;
@@ -219,11 +220,11 @@ function reducer(context: BoardContext, event: BoardEvent): BoardContext {
 	return context;
 }
 
-// interface BoardConfig {
-// 	rows: number;
-// 	columns: number;
-// 	mines: number;
-// }
+interface BoardConfig {
+	rows: number;
+	columns: number;
+	mines: number;
+}
 
 const Board = ({ board = presets.Beginner }) => {
 	let [{ gameState, cells, mines }, send] = React.useReducer(
@@ -332,7 +333,6 @@ const Board = ({ board = presets.Beginner }) => {
 													send({
 														type: "MARK_CELL",
 														index: cell.index,
-														board: board,
 													});
 												}}
 												handleSingleCellSelect={() => {
@@ -390,13 +390,9 @@ const GridCell = ({
 				ref={ref}
 				data-status={status}
 				data-revealed={isRevealed ? "" : undefined}
-				// TODO: Not sure about this
 				aria-disabled={gameIsOver}
-				// TODO: Unsure about this since buttons can't be un-pressed. SR testing
-				// needed.
 				aria-pressed={isRevealed}
 				aria-label={
-					// TODO: Test w/ announcements
 					status === "flagged"
 						? "Flagged"
 						: status === "question"
@@ -513,22 +509,18 @@ const ResetButton = ({ handleReset, gameState }) => {
 	);
 };
 
-/**
- * @param {{
- *   totalMines: number;
- *   maxMines: number;
- *   initialCellIndex: number;
- * }} args
- * @returns {number[]}
- */
-function initMines({ totalMines, maxMines, initialCellIndex }: {
-		totalMines: number;
-		maxMines: number;
-		initialCellIndex: number;
-	}): number[] {
+function initMines({
+	totalMines,
+	maxMines,
+	initialCellIndex,
+}: {
+	totalMines: number;
+	maxMines: number;
+	initialCellIndex: number;
+}): number[] {
 	let mines = [];
 	let minesToAssign = Array(totalMines).fill(null);
-	let randomCellIndex;
+	let randomCellIndex: number;
 	do {
 		randomCellIndex = Math.floor(Math.random() * maxMines);
 		if (
@@ -542,11 +534,6 @@ function initMines({ totalMines, maxMines, initialCellIndex }: {
 	return mines;
 }
 
-/**
- * @param {Cell[]} cells
- * @param {number} totalMines
- * @returns {number}
- */
 function getRemainingMineCount(cells: Cell[], totalMines: number): number {
 	return (
 		totalMines -
@@ -556,36 +543,11 @@ function getRemainingMineCount(cells: Cell[], totalMines: number): number {
 	);
 }
 
-/**
- * @param {{
- *   rows: number;
- *   columns: number;
- *   mines: number;
- * }} board
- * @returns {number}
- */
-function getCellCount(board: {
-		rows: number;
-		columns: number;
-		mines?: number;
-	}): number {
+function getCellCount(board: BoardConfig): number {
 	return board.columns * board.rows;
 }
 
-/**
- * @param {{
- *   rows: number;
- *   columns: number;
- *   mines: number;
- * }} board
- * @param {number[]} [mines]
- * @returns {Cell[]}
- */
-function createCells(board: {
-		rows: number;
-		columns: number;
-		mines: number;
-	}, mines: number[]): Cell[] {
+function createCells(board: BoardConfig, mines?: number[]): Cell[] {
 	return Array(getCellCount(board))
 		.fill(null)
 		.map((_, index) => {
@@ -598,54 +560,19 @@ function createCells(board: {
 		});
 }
 
-/**
- * @param {{
- *   rows: number;
- *   columns: number;
- *   mines: number;
- * }} board
- * @returns {Cell[]}
- */
-function resetCells(board: {
-		rows: number;
-		columns: number;
-		mines: number;
-	}): Cell[] {
+function resetCells(board: BoardConfig): Cell[] {
 	return createCells(board);
 }
 
-/**
- * @param {{
- *   rows: number;
- *   columns: number;
- *   mines: number;
- * }} board
- * @param {number[]} mines
- * @returns {Cell[]}
- */
-function initCells(board: {
-		rows: number;
-		columns: number;
-		mines: number;
-	}, mines: number[]): Cell[] {
+function initCells(board: BoardConfig, mines: number[]): Cell[] {
 	return createCells(board, mines);
 }
 
-/**
- * @param {Cell[]} cells
- * @param {{
- *   rows: number;
- *   columns: number;
- *   mines: number;
- * }} board
- * @param {number[]} mines
- * @returns {Cell[]}
- */
-function addMinesToCells(cells: Cell[], board: {
-		rows: number;
-		columns: number;
-		mines: number;
-	}, mines: number[]): Cell[] {
+function addMinesToCells(
+	cells: Cell[],
+	board: BoardConfig,
+	mines: number[]
+): Cell[] {
 	return Array(getCellCount(board))
 		.fill(null)
 		.map((_, index) => {
@@ -658,20 +585,12 @@ function addMinesToCells(cells: Cell[], board: {
 		});
 }
 
-/**
- * @param {Cell} cell
- * @returns {Cell}
- */
 function flagCell(cell: Cell): Cell {
 	return new Cell(cell, {
 		status: "flagged",
 	});
 }
 
-/**
- * @param {Cell} cell
- * @returns {Cell}
- */
 function toggleCellFlags(cell: Cell): Cell {
 	return new Cell(cell, {
 		status:
@@ -683,24 +602,13 @@ function toggleCellFlags(cell: Cell): Cell {
 	});
 }
 
-/**
- *
- * @param {number} cellIndex
- * @param {Cell[]} cells
- * @param {number[]} mines
- * @param {{
- *   rows: number;
- *   columns: number;
- *   mines: number;
- * }} board
- * @param {"idle" | "active" | "won" | "lost"} startingState
- * @returns {["idle" | "active" | "won" | "lost", Cell[]]}
- */
-function selectCell(cellIndex: number, cells: Cell[], mines: number[], board: {
-		rows: number;
-		columns: number;
-		mines: number;
-	}, startingState: "idle" | "active" | "won" | "lost"): ["idle" | "active" | "won" | "lost", Cell[]] {
+function selectCell(
+	cellIndex: number,
+	cells: Cell[],
+	mines: number[],
+	board: BoardConfig,
+	startingState: GameState
+): [GameState, Cell[]] {
 	let cellsCopy = [...cells];
 	let cell = cellsCopy[cellIndex];
 	if (!cell) {
@@ -754,18 +662,10 @@ function selectCell(cellIndex: number, cells: Cell[], mines: number[], board: {
 	return [gameState, cellsCopy];
 }
 
-/**
- * @param {Cell[]} cells
- * @returns
- */
-function getMaxMines(cells: Cell[]) {
+function getMaxMines(cells: Cell[]): number {
 	return cells.length - 1;
 }
 
-/**
- * @param {Cell[]} cells
- * @returns {number}
- */
 function getTotalRevealedCells(cells: Cell[]): number {
 	return cells.reduce((count, cell) => {
 		if (cell.status === "revealed") {
@@ -775,11 +675,7 @@ function getTotalRevealedCells(cells: Cell[]): number {
 	}, 0);
 }
 
-/**
- * @param {"idle" | "active" | "won" | "lost"} gameState
- * @returns {[number, () => void]}
- */
-function useTimer(gameState: "idle" | "active" | "won" | "lost"): [number, () => void] {
+function useTimer(gameState: GameState): [number, () => void] {
 	let [timeElapsed, setTimeElapsed] = React.useState<number>(0);
 	React.useEffect(() => {
 		if (gameState === "active") {
