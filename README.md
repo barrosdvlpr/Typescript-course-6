@@ -1,7 +1,5 @@
 # Refactoring React Components to TypeScript
 
-This is the code for my upcoming egghead course. Stay tuned for the link!
-
 ## The App: Minesweeper
 
 A Windows 98 classic, on the web 💥
@@ -13,10 +11,4 @@ A Windows 98 classic, on the web 💥
 ```bash
 npm install
 npm run dev
-```
-
-To see the app in its state at the end of my course, check out the `final` branch.
-
-```bash
-git checkout final
 ```
